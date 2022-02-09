@@ -38,7 +38,7 @@ if __name__ == "__main__":
             actions.append(action)
             score += reward
 
-            scores.append(score)
+        scores.append(score)
 
         if i % WIN_RATE_UPDATE == 0:
             win_rate_list.append(np.mean(scores[-WIN_RATE_UPDATE:]))
