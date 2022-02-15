@@ -3,6 +3,34 @@ import gym
 from collections import deque
 import cv2
 import random as rd
+import matplotlib.pyplot as plt
+
+
+def plot_learning_curve(x, scores, epsilons, filename="learning_curve.png"):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, label="1")
+    ax2 = fig.add_subplot(111, label="2", frame_on=False)
+
+    ax.plot(x, epsilons, color="C0")
+    ax.set_xlabel("Training Steps", color="C0")
+    ax.set_ylabel("Epsilon", color="C0")
+    ax.tick_params(axis='x', colors="C0")
+    ax.tick_params(axis='y', colors="C0")
+
+    N = len(scores)
+    running_avg = np.empty(N)
+    for t in range(N):
+        running_avg[t] = np.mean(scores[max(0, t-100):(t+1)])
+
+    ax2.scatter(x, running_avg, color="C1")
+    ax2.axes.get_xaxis().set_visible(False)
+    ax2.yaxis.tick_right()
+    ax2.set_ylabel('Score', color="C1")
+    ax2.yaxis.set_label_position('right')
+    ax2.tick_params(axis='y', colors="C1")
+
+    plt.show()
+    plt.savefig(filename)
 
 
 class RepeatActionAndMaxFrame(gym.Wrapper):
@@ -19,7 +47,8 @@ class RepeatActionAndMaxFrame(gym.Wrapper):
         for i in range(self.repeat):
             obs, reward_i, done, info = self.env.step(action)
             reward += reward_i
-            self.frame_buffer.append(obs)
+            self.frame_buffer[i % 2] = obs
+            # self.frame_buffer.append(obs)
             if done:
                 break
         max_frame = np.maximum(*self.frame_buffer)
@@ -27,8 +56,8 @@ class RepeatActionAndMaxFrame(gym.Wrapper):
 
     def reset(self):
         obs = self.env.reset()
-        self.frame_buffer.clear()
-        self.frame_buffer = np.zeros_like((2,self.env.observation_space.low))
+        self.frame_buffer = deque(maxlen=2)
+        self.frame_buffer = np.zeros_like((2, self.env.observation_space.low))
         self.frame_buffer[0] = obs
         return obs
 
@@ -42,36 +71,37 @@ class PreprocessFrame(gym.ObservationWrapper):
 
     def observation(self, observation):
         observation = cv2.cvtColor(observation, cv2.COLOR_BGR2GRAY)
-        observation = cv2.resize(observation, dsize=self.new_shape, shape=self.shape[1:], interpolation=cv2.INTER_AREA)
-        observation = np.array(observation).reshape(self.shape)
-        observation /= 255.0
+        observation = cv2.resize(observation, dsize=self.shape[1:], interpolation=cv2.INTER_AREA)
+        observation = np.array(observation, dtype=np.uint8).reshape(self.shape)
+        observation = observation/255.0
         return observation
 
 
+# stolen from Phil Tabor
 class StackFrames(gym.ObservationWrapper):
-    def __init__(self, env: gym.Env, stack_size=4):
+    def __init__(self, env, repeat):
         super(StackFrames, self).__init__(env)
-        self.env = env
-        self.observation_space = gym.spaces.Box(low=env.observation_space.low.repeat(stack_size, axis=0),
-                                             high=env.observation_space.high.repeat(stack_size, axis=0),
-                                             dtype=np.float32)
-
-        self.shape = env.observation_space.low.shape
-        self.frame_stack = deque(maxlen=stack_size)
+        self.observation_space = gym.spaces.Box(
+                            env.observation_space.low.repeat(repeat, axis=0),
+                            env.observation_space.high.repeat(repeat, axis=0),
+                            dtype=np.float32)
+        self.stack = deque(maxlen=repeat)
 
     def reset(self):
-        self.frame_stack.clear()
-        obs = self.env.reset()
-        for i in range(self.stack_size):
-            self.frame_stack.append(obs)
-        return np.array(self.frame_stack).reshape(self.shape)
+        self.stack.clear()
+        observation = self.env.reset()
+        for _ in range(self.stack.maxlen):
+            self.stack.append(observation)
 
-    def observation(self, obs):
-        self.frame_stack.append(obs)
-        return np.array(self.frame_stack).reshape(self.shape)
+        return np.array(self.stack).reshape(self.observation_space.low.shape)
+
+    def observation(self, observation):
+        self.stack.append(observation)
+
+        return np.array(self.stack).reshape(self.observation_space.low.shape)
 
 
-def make_env(env_name, shape=(84,84,1), repeat=4):
+def make_env(env_name, shape=(84, 84, 1), repeat=4):
     env = gym.make(env_name)
     env = RepeatActionAndMaxFrame(env, repeat)
     env = PreprocessFrame(env, shape)
@@ -88,18 +118,24 @@ class ExperienceBuffer:
         self.states_ = deque(maxlen=memory_len)
         self.dones = deque(maxlen=memory_len)
 
-    def all_memory_zipped(self):
+    def all_memory_array(self):
+        return np.array(self.all_memory_tuple(), dtype=object)
+
+    def all_memory_tuple(self):
         return tuple(zip(self.states, self.actions, self.rewards, self.states_, self.dones))
 
-    def insert(self, state, action, reward, state_,done):
-        assert (state, action, reward, state_) not in self.all_memory_zipped()
+    def insert(self, state, action, reward, state_, done):
+        # entry = (state, action, reward, state_, --done)
+        # all_mem = self.all_memory_tuple()
+        # if entry not in all_mem:
         self.states.append(state)
         self.actions.append(action)
         self.rewards.append(reward)
         self.states_.append(state_)
-        self.dones.append(done)
+        self.dones.append(--done)
 
     def sample(self):
-        rand_exp = rd.choice(self.all_memory_zipped())
-        np_exp = np.array(rand_exp, dtype=np.float32)
-        return np_exp
+        rand_exp = rd.choice(self.all_memory_tuple())
+        # np_exp = np.array(rand_exp, dtype=np.float32)
+        return rand_exp
+
