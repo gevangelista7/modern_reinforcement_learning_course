@@ -40,44 +40,37 @@ class QFTestcase(unittest.TestCase):
 
 class expBufferTestcase(unittest.TestCase):
     def test_constructor(self):
-        exp_buffer = ExperienceBuffer(5)
+        exp_buffer = ExperienceBuffer(max_size=5, input_shape=[4, 84, 84])
         self.assertEqual(type(exp_buffer), ExperienceBuffer)
 
     def test_insert_buffer(self):
-        exp_buffer = ExperienceBuffer(5)
+        exp_buffer = ExperienceBuffer(max_size=5, input_shape=[4, 84, 84])
         exp_buffer.insert(1, 2, 3, 2, False)
         exp_buffer.insert(1, 3, 45, 6, False)
-        self.assertEqual(len(exp_buffer.all_memory_tuple()), 2)
-
-    def test_reject_repeated(self):
-        exp_buffer = ExperienceBuffer(5)
-        exp_buffer.insert(1, 2, 3, 2, False)
-        exp_buffer.insert(1, 3, 45, 6, False)
-        exp_buffer.insert(1, 2, 3, 2, False)
-        self.assertEqual(len(exp_buffer.all_memory_tuple()), 2)
+        self.assertEqual(exp_buffer.mem_idx, 2)
 
     def test_max_len(self):
-        exp_buffer = ExperienceBuffer(5)
+        exp_buffer = ExperienceBuffer(max_size=5, input_shape=[4, 84, 84])
         exp_buffer.insert(1, 2, 3, 2, False)
         exp_buffer.insert(1, 3, 45, 6, True)
         exp_buffer.insert(3, 3, 5, 6, False)
         exp_buffer.insert(3, 5, 5, 6, True)
         exp_buffer.insert(4, 3, 5, 6, False)
-        self.assertEqual(len(exp_buffer.all_memory_tuple()), 5)
+        s = min(exp_buffer.mem_idx, exp_buffer.mem_size)
+        self.assertEqual(s, 5)
 
         exp_buffer.insert(3, 5, 5, 6, False)
-        self.assertEqual(len(exp_buffer.all_memory_tuple()), 5)
+        self.assertEqual(s, 5)
 
     def teste_sample(self):
-        exp_buffer = ExperienceBuffer(5)
+        exp_buffer = ExperienceBuffer(max_size=5, input_shape=[4, 84, 84])
         exp_buffer.insert(1, 2, 3, 2, False)
         exp_buffer.insert(1, 3, 45, 6, False)
         exp_buffer.insert(3, 3, 5, 6, False)
         exp_buffer.insert(3, 5, 5, 6, True)
         exp_buffer.insert(4, 3, 5, 6, False)
-        samp = exp_buffer.sample()
-        self.assertIn(tuple(samp), exp_buffer.all_memory_tuple())
-        self.assertEqual(type(samp), np.ndarray)
+        states, actions, rewards, states_, dones = exp_buffer.sample(3)
+        self.assertEqual(dones.size, 3)
 
 
 if __name__ == '__main__':

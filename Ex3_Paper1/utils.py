@@ -110,32 +110,36 @@ def make_env(env_name, shape=(84, 84, 1), repeat=4):
     return env
 
 
+# stolen from Phil Tabor
 class ExperienceBuffer:
-    def __init__(self, memory_len):
-        self.states = deque(maxlen=memory_len)
-        self.actions = deque(maxlen=memory_len)
-        self.rewards = deque(maxlen=memory_len)
-        self.states_ = deque(maxlen=memory_len)
-        self.dones = deque(maxlen=memory_len)
+    def __init__(self, max_size, input_shape):
+        self.mem_size = max_size
 
-    def all_memory_array(self):
-        return np.array(self.all_memory_tuple(), dtype=object)
+        self.states = np.zeros((self.mem_size, *input_shape), dtype=np.float32)
+        self.states_ = np.zeros((self.mem_size, *input_shape), dtype=np.float32)
 
-    def all_memory_tuple(self):
-        return tuple(zip(self.states, self.actions, self.rewards, self.states_, self.dones))
+        self.actions = np.zeros(self.mem_size, dtype=np.int64)
+        self.rewards = np.zeros(self.mem_size, dtype=np.float32)
+        self.dones = np.zeros(self.mem_size, dtype=np.bool)
+
+        self.mem_idx = 0
 
     def insert(self, state, action, reward, state_, done):
-        # entry = (state, action, reward, state_, --done)
-        # all_mem = self.all_memory_tuple()
-        # if entry not in all_mem:
-        self.states.append(state)
-        self.actions.append(action)
-        self.rewards.append(reward)
-        self.states_.append(state_)
-        self.dones.append(--done)
+        idx = self.mem_idx % self.mem_size
+        self.states[idx] = state
+        self.actions[idx] = action
+        self.rewards[idx] = reward
+        self.states_[idx] = state_
+        self.dones[idx] = done
+        self.mem_idx += 1
 
-    def sample(self):
-        rand_exp = rd.choice(self.all_memory_tuple())
-        # np_exp = np.array(rand_exp, dtype=np.float32)
-        return rand_exp
+    def sample(self, batch_size):
+        max_mem = min(self.mem_idx, self.mem_size)
+        batch_idx = np.random.choice(max_mem, batch_size, replace=False)
+        b_states = self.states[batch_idx]
+        b_actions = self.actions[batch_idx]
+        b_rewards = self.rewards[batch_idx]
+        b_states_ = self.states_[batch_idx]
+        b_dones = self.dones[batch_idx]
+        return b_states, b_actions, b_rewards, b_states_, b_dones
 

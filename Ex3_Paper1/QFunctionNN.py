@@ -8,10 +8,11 @@ import torch
 import os
 
 class QFunctionNN(nn.Module):
-    def __init__(self, lr, state_shape, actions_n, name="model-v0.pt", checkpoint_dir="./saved_models"):
+    def __init__(self, lr, state_shape, actions_n, batch_size , name="model-v0.pt", checkpoint_dir="./saved_models"):
         super(QFunctionNN, self).__init__()
         self.state_shape = state_shape
         self.actions_n = actions_n
+        self.batch_size = batch_size
 
         self.conv_in_channels = state_shape[0]
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -32,24 +33,8 @@ class QFunctionNN(nn.Module):
         self.checkpoint_dir = checkpoint_dir
         self.checkpoint_file = os.path.join(self.checkpoint_dir, name)
 
-        # self.conv_layers = nn.Sequential(
-        #     nn.Conv2d(in_channels=state_shape[-1], out_channels=32, kernel_size=(8, 8), stride=(4, 4)),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(4, 4), stride=(2, 2)),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 3), stride=(1, 1)),
-        #     nn.ReLU()
-        # ).to(self.device),
-        #
-        # self.fc_layers = nn.Sequential(
-        #     nn.Linear(64, 512),
-        #     nn.ReLU(),
-        #     nn.Linear(512, actions_n),
-        #     nn.ReLU()
-        # ).to(self.device),
-
     def get_fc_input_size(self):
-        zrs = torch.zeros([1, *self.state_shape]).to(self.device)
+        zrs = torch.zeros([self.batch_size, *self.state_shape]).to(self.device)
         conv_out = self.conv(zrs)
         conv_out = torch.flatten(conv_out)
         return int(conv_out.shape[0])
