@@ -24,13 +24,12 @@ if __name__ == "__main__":
     steps_means = []
     score_means = []
     eps_history = []
-
+    print("Device: ", agent.device, "\n")
     for i in range(N_GAMES):
         obs = env.reset()
         game_score = 0
         game_steps = 0
         done = False
-        print("Device: ", agent.device, "\n")
         while not done:
             action = agent.choose_action(obs)
             next_obs, reward, done, _ = env.step(action)

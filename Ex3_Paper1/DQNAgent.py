@@ -46,7 +46,7 @@ class DQNAgent:
         # self.Q_tgt.load_state_dict(self.Q.state_dict()) # does work??
 
     def best_action(self, state):
-        state = torch.tensor([state], dtype=torch.float32, device=self.Q.device)
+        state = torch.tensor(state[np.newaxis, :, :, :], dtype=torch.float32, device=self.Q.device)
         actions = self.Q.forward(state)
         action = actions.argmax().item()
 

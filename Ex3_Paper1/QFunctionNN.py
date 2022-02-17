@@ -1,11 +1,10 @@
-import math
-
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch
 import os
+
 
 class QFunctionNN(nn.Module):
     def __init__(self, lr, state_shape, actions_n, batch_size , name="model-v0.pt", checkpoint_dir="./saved_models"):
@@ -34,10 +33,10 @@ class QFunctionNN(nn.Module):
         self.checkpoint_file = os.path.join(self.checkpoint_dir, name)
 
     def get_fc_input_size(self):
-        zrs = torch.zeros([self.batch_size, *self.state_shape]).to(self.device)
+        zrs = torch.zeros(1, *self.state_shape).to(self.device)
         conv_out = self.conv(zrs)
-        conv_out = torch.flatten(conv_out)
-        return int(conv_out.shape[0])
+        # conv_out = conv_out.view(conv_out.size()[0], -1)
+        return int(np.prod(conv_out.shape))
 
     def conv(self, state):
         layer1 = F.relu(self.conv1(state))
@@ -52,7 +51,7 @@ class QFunctionNN(nn.Module):
 
     def forward(self, state):
         convoluted = F.relu(self.conv(state))
-        convoluted_f = torch.flatten(convoluted)
+        convoluted_f = convoluted.view(convoluted.size()[0], -1)
         actions = F.relu(self.fcl(convoluted_f))
         return actions
 
