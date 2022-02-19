@@ -4,13 +4,12 @@ from QFunctionNN import QFunctionNN
 from utils import ExperienceBuffer, make_env, plot_learning_curve
 from DQNAgent import DQNAgent
 
-SCORE_UPDATE = 100
-N_GAMES = 10000
-BATCH_SIZE = 100
-LEARN_IDX = 100
-TGT_Q_UPDATE = 1000
+SCORE_UPDATE = 1
+N_GAMES = 500
 
-env = make_env('PongNoFrameskip-v0')
+TRAINING = True
+
+env = make_env('PongNoFrameskip-v4')
 
 if __name__ == "__main__":
     actions_n = env.action_space.n
@@ -24,11 +23,12 @@ if __name__ == "__main__":
     steps_means = []
     score_means = []
     eps_history = []
+    game_steps = 0
+    best_score = - np.inf
     print("Device: ", agent.device, "\n")
     for i in range(N_GAMES):
         obs = env.reset()
         game_score = 0
-        game_steps = 0
         done = False
         while not done:
             action = agent.choose_action(obs)
@@ -44,15 +44,18 @@ if __name__ == "__main__":
         scores.append(game_score)
         steps.append(game_steps)
         eps_history.append(agent.epsilon)
-        if i % SCORE_UPDATE == 0:
-            mean_score = np.mean(scores[-SCORE_UPDATE:])
-            mean_steps = np.mean(steps[-SCORE_UPDATE:])
-            score_means.append(mean_score)
-            steps_means.append(mean_steps)
-            print("episode: {} \tmean score: {:.3} \tmean steps: {:.3} \tepsilon: {:.5}"
-                  .format(i, mean_score, mean_steps, agent.epsilon))
 
-    x = [i + 1 for i in range(N_GAMES)]
-    plot_learning_curve(x, scores, eps_history)
+        avg_score = np.mean(scores[-SCORE_UPDATE:])
+        if avg_score > best_score:
+            best_score = avg_score
+            if TRAINING:
+                agent.save_model()
+
+        if i % SCORE_UPDATE == 0:
+            print("episode: {} \tsteps: {} \tbest score: {:.3} \tscore: {:.3} \tepsilon: {:.5}"
+                  .format(i, steps[-1], best_score, avg_score, agent.epsilon))
+
+    # x = [i + 1 for i in range(scores)]
+    plot_learning_curve(steps, scores, eps_history)
 
 

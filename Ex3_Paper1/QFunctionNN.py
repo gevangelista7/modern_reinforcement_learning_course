@@ -15,7 +15,6 @@ class QFunctionNN(nn.Module):
 
         self.conv_in_channels = state_shape[0]
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.to(self.device)
 
         self.conv1 = nn.Conv2d(in_channels=self.conv_in_channels, out_channels=32, kernel_size=(8, 8), stride=(4, 4)).to(self.device)
         self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(4, 4), stride=(2, 2)).to(self.device)
@@ -28,6 +27,7 @@ class QFunctionNN(nn.Module):
 
         self.optimizer = optim.RMSprop(params=self.parameters(), lr=lr)
         self.loss = nn.MSELoss()
+        self.to(self.device)
 
         self.checkpoint_dir = checkpoint_dir
         self.checkpoint_file = os.path.join(self.checkpoint_dir, name)
@@ -46,13 +46,13 @@ class QFunctionNN(nn.Module):
 
     def fcl(self, conv_out):
         layer4 = F.relu((self.fcl1(conv_out)))
-        out_layer = F.relu(self.fcl2(layer4))
+        out_layer = self.fcl2(layer4)
         return out_layer
 
     def forward(self, state):
         convoluted = F.relu(self.conv(state))
         convoluted_f = convoluted.view(convoluted.size()[0], -1)
-        actions = F.relu(self.fcl(convoluted_f))
+        actions = self.fcl(convoluted_f)
         return actions
 
     def save_checkpoint(self):

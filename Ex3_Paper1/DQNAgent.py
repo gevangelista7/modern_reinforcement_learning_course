@@ -19,8 +19,8 @@ class DQNAgent:
         self.eps_dec = eps_dec
         self.eps_min = eps_end
 
-        self.Q = QFunctionNN(lr=lr, state_shape=state_shape, actions_n=actions_n, batch_size=batch_size)
-        self.Q_tgt = deepcopy(self.Q)
+        self.Q_eval = QFunctionNN(lr=lr, state_shape=state_shape, actions_n=actions_n, batch_size=batch_size)
+        self.Q_tgt = QFunctionNN(lr=lr, state_shape=state_shape, actions_n=actions_n, batch_size=batch_size)
 
         self.memory = ExperienceBuffer(mem_size, state_shape)
         self.batch_size = batch_size
@@ -40,17 +40,15 @@ class DQNAgent:
 
         return action
 
-    def update_Q_tgt(self):
-        self.Q_tgt.load_state_dict(self.Q.state_dict())
-        # self.Q_tgt = deepcopy(self.Q)
-        # self.Q_tgt.load_state_dict(self.Q.state_dict()) # does work??
-
     def best_action(self, state):
-        state = torch.tensor(state[np.newaxis, :, :, :], dtype=torch.float32, device=self.Q.device)
-        actions = self.Q.forward(state)
+        state = torch.tensor(np.expand_dims(state, 0), dtype=torch.float32, device=self.Q_eval.device)
+        actions = self.Q_eval.forward(state)
         action = actions.argmax().item()
 
         return action
+
+    def update_Q_tgt(self):
+        self.Q_tgt.load_state_dict(self.Q_eval.state_dict())
 
     def insert_memory(self, state, action, reward, state_, done):
         self.memory.insert(state, action, reward, state_, done)
@@ -67,32 +65,36 @@ class DQNAgent:
         return states, actions, rewards, states_, dones
 
     def save_model(self):
-        self.Q.save_checkpoint()
+        print(" === === === SAVING CHECKPOINT === === ===")
+        self.Q_eval.save_checkpoint()
 
     def load_model(self, ):
-        self.Q.load_checkpoint()
+        print(" === === === LOADING CHECKPOINT === === ===")
+        self.Q_eval.load_checkpoint()
 
     def learn(self):
         if self.memory.mem_idx < self.batch_size:
+            # print("skip learning...")
             return
 
-        self.Q.zero_grad()
+        self.Q_eval.optimizer.zero_grad()
+
+        if self.learn_step_count % self.q_tgt_update_period == 0:
+            self.update_Q_tgt()
 
         states, actions, rewards, states_, dones = self.sample_memory()
         index = np.arange(self.batch_size)
 
-        q_pred = self.Q.forward(states)[index, actions]
-        q_next = self.Q_tgt.forward(states_).max(-1)[0]
+        q_pred = self.Q_eval.forward(states)[index, actions]
+        q_next = self.Q_tgt.forward(states_).max(dim=1)[0]
 
         q_next[dones] = 0.0
+        q_tgt = rewards + self.gamma * q_next
 
-        tgt = rewards + self.gamma * q_next
-        loss = self.Q.loss(q_pred, tgt)
-
+        loss = self.Q_eval.loss(q_tgt, q_pred).to(self.Q_eval.device)
         loss.backward()
-        self.Q.optimizer.step()
-        self.decrement_epsilon()
+        self.Q_eval.optimizer.step()
 
+        self.decrement_epsilon()
         self.learn_step_count += 1
-        if self.learn_step_count % self.q_tgt_update_period:
-            self.update_Q_tgt()
+
