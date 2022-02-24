@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch
 
-class PolicyGradientNN():
+class PolicyGradientNN(nn.Module):
     def __init__(self, lr, obs_shape, actions_n):
         super(PolicyGradientNN, self).__init__()
         self.obs_shape = obs_shape
@@ -19,7 +19,7 @@ class PolicyGradientNN():
 
         self.optimizer = optim.Adam(params=self.parameters(), lr=lr)
         self.loss = nn.MSELoss()
-        self. to(self.device)
+        self.to(self.device)
 
     def forward(self, obs):
         return self.model.forward(obs)
