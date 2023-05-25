@@ -1,6 +1,8 @@
 # modern_reinforcement_learning_course
-My solutions repository for exercises proposede on the course Modern Reinforcement Learning (https://www.udemy.com/course/deep-q-learning-from-paper-to-code).
-The exercises consists on personal implementations of methods proposeds directly from the papers.
+My solutions repository for DRL exercises.
+The exercises consists on personal implementations of methods proposed directly from the papers. 
+These implementations are part of the course Modern Reinforcement Learning (https://www.udemy.com/course/deep-q-learning-from-paper-to-code).
+
 The algorithms implemented are:
   - Q-Learning
   - Deep Q-Learning (DQN) (Mnih, Volodymyr, et al. "Human-level control through deep reinforcement learning." Nature 518.7540 (2015): 529-533)
